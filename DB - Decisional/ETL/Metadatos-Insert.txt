@@ -1,0 +1,82 @@
+﻿USE DataMart;
+-- METADATOS - - se ejecuta una sola vez
+-- CONDUCTOR
+INSERT INTO dim_conductores
+SELECT 
+    0,'sin conductor'
+FROM dual
+WHERE NOT EXISTS (SELECT *
+                    FROM dim_conductores
+                    WHERE CdCond = 0);
+-- RUTAS
+INSERT INTO dim_rutas
+SELECT 
+    0,'sin ruta','sin ruta','sin ruta','sin ruta'
+FROM dual
+WHERE NOT EXISTS (SELECT *
+                    FROM dim_rutas
+                    WHERE CdRuta = 0);
+-- TIPO NOVEDAD
+INSERT INTO dim_tiposNovedad
+SELECT 
+    0,'sin tipo novedad'
+FROM dual
+WHERE NOT EXISTS (SELECT *
+                    FROM dim_tiposNovedad
+                    WHERE CdTipoNov = 0);
+-- MOTIVOS NO REPARACION
+INSERT INTO dim_motivosNoReparacion
+SELECT 
+    0,'sin motivo no repacion'
+FROM dual
+WHERE NOT EXISTS (SELECT *
+                    FROM dim_motivosNoReparacion
+                    WHERE CdNoRep = 0);
+-- ESTADO NOVEDAD pendiente
+INSERT INTO dim_estadosNovedad
+SELECT 
+    1,'Pendiente'
+FROM dual
+WHERE NOT EXISTS (SELECT *
+                    FROM dim_estadosNovedad
+                    WHERE idEstadoNovedad = 1);
+-- ESTADO NOVEDAD Terminada
+INSERT INTO dim_estadosNovedad
+SELECT 
+    2,'Terminada'
+FROM dual
+WHERE NOT EXISTS (SELECT *
+                    FROM dim_estadosNovedad
+                    WHERE idEstadoNovedad = 2);
+
+
+
+
+-- Interno sin nombre
+
+
+INSERT INTO `dim_internos` (`Interno`,`CdEmpresa`,`ChasisMarca`,`ChasisModelo`,`ChasisAno`,`ChasisNr`,`MotorAno`,`MotorNr`,`Carroceria`,`CarroceriaModelo`,`Dominio`,`PatenteMOP`,`Poliza`,`CdRuta`) 
+VALUES (0,1,'SIN INTERNO','SIN INTERNO',0,'',0,'','','','','','',0);
+
+
+
+
+-- ESTADO VALE SALIDA !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+INSERT INTO dim_estado_ValeSalida
+SELECT
+        0, 'No Anulado'
+FROM dual
+WHERE NOT EXISTS (SELECT *
+                                        FROM dim_estado_ValeSalida
+                    WHERE idEstadoValeSalida = 0);
+
+
+-- -------------
+INSERT INTO dim_estado_ValeSalida
+SELECT
+        1, 'Anulado'
+FROM dual
+WHERE NOT EXISTS (SELECT *
+                                        FROM dim_estado_ValeSalida
+                    WHERE idEstadoValeSalida = 1);
+-- !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

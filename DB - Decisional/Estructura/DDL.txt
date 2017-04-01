@@ -1,0 +1,238 @@
+﻿CREATE DATABASE IF NOT EXISTS DataMart;
+USE DataMart;
+
+
+CREATE TABLE IF NOT EXISTS `dim_tiempo` (
+    idFecha INT(11) PRIMARY KEY,
+    dia INT(2) NOT NULL,
+    mes INT(2) NOT NULL,
+    nombreMes VARCHAR(20) NOT NULL,
+    anio INT(4) NOT NULL,
+    INDEX `inidiceAnio` (`anio`)
+);
+
+
+CREATE TABLE IF NOT EXISTS `dim_conductores` (
+    CdCond INT(11) PRIMARY KEY,
+    NmCond VARCHAR(50) NOT NULL
+);
+
+
+CREATE TABLE IF NOT EXISTS `dim_estadosNovedad` (
+    idEstadoNovedad INT(2) PRIMARY KEY,
+    descripcionEstado VARCHAR(50) NOT NULL
+);
+
+
+CREATE TABLE IF NOT EXISTS `dim_motivosNoReparacion` (
+    CdNoRep INT(11) PRIMARY KEY,
+    NmNoRep VARCHAR(50) NOT NULL
+);
+
+
+CREATE TABLE IF NOT EXISTS `dim_tiposNovedad` (
+    CdTipoNov INT(11) PRIMARY KEY,
+    NmTipoNov VARCHAR(50) NOT NULL
+);
+
+
+CREATE TABLE IF NOT EXISTS `dim_depositos` (
+    CdDeposito INT(11) PRIMARY KEY,
+    NmDeposito VARCHAR(50) NOT NULL
+);
+
+
+-- Unir Interno Con Rutas
+CREATE TABLE IF NOT EXISTS `dim_rutas` (
+    `CdRuta` INT(11) PRIMARY KEY,
+    `NmRuta` VARCHAR(50) NOT NULL,
+    `CuentaC` VARCHAR(20) NOT NULL,
+    `CuentaA` VARCHAR(20) NOT NULL,
+    `CuentaP` VARCHAR(20) NOT NULL
+);
+
+
+CREATE TABLE IF NOT EXISTS `dim_internos` (
+    `Interno` INT(11) PRIMARY KEY,
+    `CdEmpresa` INT(11) NOT NULL,
+    `ChasisMarca` VARCHAR(50) NOT NULL,
+    `ChasisModelo` VARCHAR(50) NOT NULL,
+    `ChasisAno` INT(11) NOT NULL,
+    `ChasisNr` VARCHAR(25) NOT NULL,
+    `MotorAno` INT(11) NOT NULL,
+    `MotorNr` VARCHAR(20) NOT NULL,
+    `Carroceria` VARCHAR(30) NOT NULL,
+    `CarroceriaModelo` VARCHAR(30) NOT NULL,
+    `Dominio` VARCHAR(8) NOT NULL,
+    `PatenteMOP` VARCHAR(10) NOT NULL,
+    `Poliza` VARCHAR(20) NOT NULL,
+    `CdRuta` INT(11) NOT NULL,
+    CONSTRAINT `fkRuta` FOREIGN KEY (`CdRuta`)
+        REFERENCES `dim_rutas` (`CdRuta`)
+        ON DELETE RESTRICT ON UPDATE RESTRICT
+)  ENGINE=INNODB;
+    
+CREATE TABLE IF NOT EXISTS `hechos_novedades` (
+    `NrPlani` INT(11) NOT NULL,
+    `NrItem` INT(11) NOT NULL,
+    `CdCond` INT(11) NOT NULL,
+    `CdDeposito` INT(11) NOT NULL,
+    `CdNoRep` INT(11) NOT NULL,
+    `CdTipoNov` INT(11) NOT NULL,
+    `idEstadoNovedad` INT(11) NOT NULL,
+    `Interno` INT(11) NOT NULL,
+    `FechaInicio` INT NOT NULL,
+    `CantidadNovedades` INT(1) DEFAULT 1,
+    `DuracionEnDias` BIGINT(21),
+    CONSTRAINT `pk_todos` PRIMARY KEY (`NrPlani` , `NrItem`),
+    CONSTRAINT `fk_Conductor` FOREIGN KEY (`CdCond`)
+        REFERENCES `dim_conductores` (`CdCond`)
+        ON DELETE NO ACTION ON UPDATE NO ACTION,
+    CONSTRAINT `fk_Estado` FOREIGN KEY (`idEstadoNovedad`)
+        REFERENCES `dim_estadosNovedad` (`idEstadoNovedad`)
+        ON DELETE NO ACTION ON UPDATE NO ACTION,
+    CONSTRAINT `fk_tipos_novedad` FOREIGN KEY (`CdTipoNov`)
+        REFERENCES `dim_tiposNovedad` (`CdTipoNov`)
+        ON DELETE NO ACTION ON UPDATE NO ACTION,
+    CONSTRAINT `fk_FechaInicio` FOREIGN KEY (`FechaInicio`)
+        REFERENCES `dim_tiempo` (`idFecha`)
+        ON DELETE NO ACTION ON UPDATE NO ACTION,
+    CONSTRAINT `fk_Internos` FOREIGN KEY (`Interno`)
+        REFERENCES `dim_internos` (`Interno`)
+        ON DELETE NO ACTION ON UPDATE NO ACTION,
+    CONSTRAINT `fk_NoReparacion` FOREIGN KEY (`CdNoRep`)
+        REFERENCES `dim_motivosNoReparacion` (`CdNoRep`)
+        ON DELETE NO ACTION ON UPDATE NO ACTION,
+    CONSTRAINT `fk_Deposito` FOREIGN KEY (`CdDeposito`)
+        REFERENCES `dim_depositos` (`CdDeposito`)
+        ON DELETE NO ACTION ON UPDATE NO ACTION
+)  ENGINE=INNODB;
+
+
+-- SUMARIZACION  --------------------------------------
+
+
+CREATE TABLE IF NOT EXISTS `dim_mes` (
+    idFecha INT(11) PRIMARY KEY,
+    mes INT(2) NOT NULL,
+    nombreMes VARCHAR(20) NOT NULL,
+    anio INT(4) NOT NULL
+);
+
+
+CREATE TABLE IF NOT EXISTS `sumarizacion_novXmesXtipo` (
+    `CdTipoNov` INT(11) NOT NULL,
+    `MesInicio` INT(11) NOT NULL,
+    `CantidadNovedaes` INT(10),
+    `DuracionEnDias` BIGINT(21),
+    CONSTRAINT `pk_todos2` PRIMARY KEY (`CdTipoNov` , `MesInicio`),
+    CONSTRAINT `fk_tipos_novedad2` FOREIGN KEY (`CdTipoNov`)
+        REFERENCES `dim_tiposNovedad` (`CdTipoNov`)
+        ON DELETE NO ACTION ON UPDATE NO ACTION,
+    CONSTRAINT `fk_FechaInicio2` FOREIGN KEY (`MesInicio`)
+        REFERENCES `dim_mes` (`idFecha`)
+        ON DELETE NO ACTION ON UPDATE NO ACTION
+)  ENGINE=INNODB;
+
+
+
+
+
+
+-- HECHOS VALE SALIDA
+-- Que hacemos para tener un grafico de sierra del stock a lo largo del tiempo? Y el precio?
+-- Que es FechaUE?
+
+
+
+
+CREATE TABLE IF NOT EXISTS `dim_articulos` (
+    CdArt INT(11) PRIMARY KEY,
+    DsArt VARCHAR(50) NOT NULL,
+    Ubicacion VARCHAR(50) NOT NULL
+);
+
+
+-- NO ESPECIFICAN LA MARCA DEL NINGUN ARTICULO, NO LA USAN.
+
+
+CREATE TABLE IF NOT EXISTS `dim_rubros` (
+    CdRubro INT(11) PRIMARY KEY,
+    NmRubro VARCHAR(50) NOT NULL
+);
+
+
+CREATE TABLE IF NOT EXISTS `dim_medidas` (
+    CdMedida INT(11) PRIMARY KEY,
+    NmMedida VARCHAR(50) NOT NULL
+);
+
+
+CREATE TABLE IF NOT EXISTS `dim_familias` (
+    CdFamilia INT(11) PRIMARY KEY,
+    NmFamilia VARCHAR(50) NOT NULL
+);
+
+
+CREATE TABLE IF NOT EXISTS `dim_subFamilias` (
+    CdSubFamilia INT(11) PRIMARY KEY,
+    NmSubFamilia VARCHAR(50) NOT NULL
+);
+
+
+CREATE TABLE IF NOT EXISTS `dim_estado_ValeSalida` (
+    idEstadoValeSalida INT(2) PRIMARY KEY,
+    descripcionEstadoVale VARCHAR(50) NOT NULL
+);
+
+
+
+
+CREATE TABLE IF NOT EXISTS `hechos_valeSalida` (
+    `NrVale` INT(11) NOT NULL,
+    `NrItem` INT(11) NOT NULL,
+    `Fecha` INT(11) NOT NULL,
+    `CdArt` INT(11) NOT NULL,
+    `CdDeposito` INT(11) NOT NULL,
+    `CdRubro` INT(11) NOT NULL,
+    `CdMedida` INT(11) NOT NULL,
+    `CdFamilia` INT(11) NOT NULL,
+    `CdSubFamilia` INT(11) NOT NULL,
+    `Interno` INT(11) NOT NULL,
+    `idEstadoValeSalida` INT(1),
+    `CantidadValeSalida` INT(1) DEFAULT 1,
+    `CantidadItem` FLOAT,
+    `EntregaItem` FLOAT,
+    `PrecioItem` FLOAT,
+    `PrecioTotal` FLOAT,
+    CONSTRAINT `pk_todos` PRIMARY KEY (`NrVale` , `NrItem`),
+    CONSTRAINT `fk_Fecha` FOREIGN KEY (`Fecha`)
+        REFERENCES `dim_tiempo` (`idFecha`)
+        ON DELETE NO ACTION ON UPDATE NO ACTION,
+    CONSTRAINT `fk_Articulos` FOREIGN KEY (`CdArt`)
+        REFERENCES `dim_articulos` (`CdArt`)
+        ON DELETE NO ACTION ON UPDATE NO ACTION,
+    CONSTRAINT `fk_Depositos2` FOREIGN KEY (`CdDeposito`)
+        REFERENCES `dim_depositos` (`CdDeposito`)
+        ON DELETE NO ACTION ON UPDATE NO ACTION,
+    CONSTRAINT `fk_Rubro` FOREIGN KEY (`CdRubro`)
+        REFERENCES `dim_rubros` (`CdRubro`)
+        ON DELETE NO ACTION ON UPDATE NO ACTION,
+    CONSTRAINT `fk_Medida` FOREIGN KEY (`CdMedida`)
+        REFERENCES `dim_medidas` (`CdMedida`)
+        ON DELETE NO ACTION ON UPDATE NO ACTION,
+    CONSTRAINT `fk_Familia2` FOREIGN KEY (`CdFamilia`)
+        REFERENCES `dim_familias` (`CdFamilia`)
+        ON DELETE NO ACTION ON UPDATE NO ACTION,
+    CONSTRAINT `fk_subFamilias2` FOREIGN KEY (`CdSubFamilia`)
+        REFERENCES `dim_subFamilias` (`CdSubFamilia`)
+        ON DELETE NO ACTION ON UPDATE NO ACTION,
+    CONSTRAINT `fk_Internos2` FOREIGN KEY (`Interno`)
+        REFERENCES `dim_internos` (`Interno`)
+        ON DELETE NO ACTION ON UPDATE NO ACTION,
+   CONSTRAINT `fk_Estado_Vale_Salida` FOREIGN KEY (`idEstadoValeSalida`)
+        REFERENCES `dim_estado_ValeSalida` (`idEstadoValeSalida`)
+        ON DELETE NO ACTION ON UPDATE NO ACTION
+
+
+)  ENGINE=INNODB;

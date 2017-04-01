@@ -1,0 +1,239 @@
+﻿USE DataMart;
+-- Debemos desabilitar en el sql mode: only full group by
+-- sudo nano /etc/mysql/my.cnf
+-- agregamos las siguiente lineas y reseteamos
+-- [mysqld]
+--sql_mode="STRICT_TRANS_TABLES,NO_ZERO_IN_DATE,NO_ZERO_DATE,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION"
+
+
+-- DIMENSION TIEMPO NOVEDADES---------------------------
+INSERT INTO DataMart.dim_tiempo
+SELECT distinct    UNIX_TIMESTAMP(p_partenov.Fecha),day(p_partenov.Fecha),month(p_partenov.Fecha),DATE_FORMAT(p_partenov.Fecha,'%M'),year(p_partenov.Fecha)
+FROM
+    Intercordoba.p_partenov
+where p_partenov.Fecha is not null and
+        UNIX_TIMESTAMP(p_partenov.Fecha) NOT IN (SELECT idFecha
+                       FROM DataMart.dim_tiempo)
+order by year(p_partenov.Fecha), month(p_partenov.Fecha), day(p_partenov.Fecha);
+-- CONDUCTORES---------------------------
+INSERT INTO DataMart.dim_conductores
+SELECT 
+    p_partenov.CdCond1, p_partenov.NmCond1
+FROM
+    Intercordoba.p_partenov
+where 
+        p_partenov.CdCond1 NOT IN (SELECT CdCond
+                       FROM DataMart.dim_conductores)
+GROUP BY p_partenov.CdCond1
+ORDER BY p_partenov.NmCond1 ASC;
+-- RUTAS---------------------------
+INSERT INTO DataMart.dim_rutas
+SELECT 
+    CdRuta, NmRuta, CuentaC, CuentaA, CuentaP
+FROM
+    Intercordoba.rutas
+where 
+        CdRuta NOT IN (SELECT CdRuta
+                       FROM DataMart.dim_rutas);
+-- TIPOS NOVEDAD---------------------------
+INSERT INTO DataMart.dim_tiposNovedad
+SELECT 
+    CdTipoNov,NmTipoNov 
+FROM 
+    Intercordoba.p_tiposnov
+where 
+        CdTipoNov NOT IN (SELECT CdTipoNov
+                       FROM DataMart.dim_tiposNovedad);
+-- MOTIVOS NO REPARACION---------------------------
+INSERT INTO DataMart.dim_motivosNoReparacion (CdNoRep,NmNoRep) 
+SELECT 
+        CdNoRep,NmNoRep 
+FROM 
+        Intercordoba.p_motivosnorep
+where 
+        CdNoRep NOT IN (SELECT CdNoRep
+                       FROM DataMart.dim_motivosNoReparacion);
+-- DEPOSIOS ---------------------------
+INSERT INTO DataMart.dim_depositos
+SELECT
+CdDeposito,NmDeposito FROM Intercordoba.p_depositos
+where 
+        CdDeposito NOT IN (SELECT CdDeposito
+                       FROM DataMart.dim_depositos);
+-- InternoS ---------------------------
+INSERT INTO DataMart.dim_internos 
+SELECT
+Interno,CdEmpresa,ChasisMarca,ChasisModelo,ChasisAno,ChasisNr,MotorAno,MotorNr,Carroceria,
+CarroceriaModelo,Dominio,PatenteMOP,Poliza,CdRuta FROM Intercordoba.internos 
+where CdRuta is not null and 
+        Interno NOT IN (SELECT Interno
+                       FROM DataMart.dim_internos);
+-- HECHOS NOVEDADES-----------------------------
+-- el Interno 106 no existe mas en la base de datos pero si tiene novedades
+INSERT INTO DataMart.hechos_novedades
+SELECT
+    p_partenovitems.NrPlani,
+    NrItem,
+    CdCond1,
+    CdDeposito,
+    CdNoRep,
+    CdTipoNov,
+    (Terminada + 1),
+    Interno,
+    UNIX_TIMESTAMP(p_partenov.Fecha),
+    1,
+    TIMESTAMPDIFF(day, p_partenov.Fecha, p_partenovitems.Fecha) AS DiffDate
+FROM
+    Intercordoba.p_partenov
+        JOIN
+    Intercordoba.p_partenovitems ON p_partenov.NrPlani = p_partenovitems.NrPlani
+where NOT Intercordoba.p_partenov.Interno = 106 and
+         Intercordoba.p_partenov.NrPlani NOT IN (SELECT NrPlani
+                       FROM DataMart.hechos_novedades);
+
+
+
+
+-- SUMARIZACION
+-- USAMOS OTROS FORMATO DE FECHA XQ EL UNIXTIMSTAMP TOMA TODA LA FECHA PARA CREAR EL ID, y no solo el mes y anio. 
+-- ETL DIM MES---------------------------
+INSERT INTO DataMart.dim_mes
+SELECT distinct
+CONCAT(year(p_partenov.Fecha),  month(p_partenov.Fecha)), month(p_partenov.Fecha), DATE_FORMAT(p_partenov.Fecha,'%M') , year(p_partenov.Fecha)
+FROM Intercordoba.p_partenov
+where p_partenov.Fecha is not null and CONCAT(year(p_partenov.Fecha),  month(p_partenov.Fecha)) NOT IN (SELECT idFecha FROM DataMart.dim_mes)
+group by month(p_partenov.Fecha), year(p_partenov.Fecha)
+order by month(p_partenov.Fecha), year(p_partenov.Fecha);
+-- ETL hechos sumarizados
+INSERT INTO DataMart.sumarizacion_novXmesXtipo
+SELECT
+    CdTipoNov,
+    CONCAT(year(p_partenov.Fecha),  month(p_partenov.Fecha)),
+    count(1),
+    SUM( TIMESTAMPDIFF(day, p_partenov.Fecha, p_partenovitems.Fecha))
+FROM
+    Intercordoba.p_partenov
+        JOIN
+    Intercordoba.p_partenovitems ON p_partenov.NrPlani = p_partenovitems.NrPlani
+where (p_partenovitems.CdTipoNov , CONCAT(year(p_partenov.Fecha) , month(p_partenov.Fecha)))
+NOT IN (SELECT CdTipoNov, CONCAT(year(p_partenov.Fecha),  month(p_partenov.Fecha)) 
+FROM DataMart.sumarizacion_novXmesXtipo )
+group by CdTipoNov, month(p_partenov.Fecha), year(p_partenov.Fecha);
+
+
+
+
+-- VALE SALIDA -------------------------------------------
+-- DIMENSION TIEMPO NOVEDADES---------------------------
+INSERT INTO DataMart.dim_tiempo
+SELECT distinct
+    UNIX_TIMESTAMP(p_valesalidacab.Fecha),day(p_valesalidacab.Fecha),month(p_valesalidacab.Fecha),DATE_FORMAT(p_valesalidacab.Fecha,'%M'),year(p_valesalidacab.Fecha)
+FROM
+    Intercordoba.p_valesalidacab
+where p_valesalidacab.Fecha is not null and
+        UNIX_TIMESTAMP(p_valesalidacab.Fecha) NOT IN (SELECT idFecha
+                       FROM DataMart.dim_tiempo)
+order by year(p_valesalidacab.Fecha), month(p_valesalidacab.Fecha), day(p_valesalidacab.Fecha);
+-- ARTICULOS ---------------------------
+INSERT INTO DataMart.dim_articulos (CdArt,DsArt, Ubicacion) 
+SELECT 
+        CdArt,DsArt,Ubicacion
+FROM 
+        Intercordoba.articulos
+where 
+        CdArt NOT IN (SELECT CdArt
+                       FROM DataMart.dim_articulos);
+-- RUBROS ---------------------------
+INSERT INTO DataMart.dim_rubros (CdRubro,NmRubro) 
+SELECT 
+        CdRubro,NmRubro
+FROM 
+        Intercordoba.p_rubros
+where 
+        CdRubro NOT IN (SELECT CdRubro
+                       FROM DataMart.dim_rubros);
+-- MEDIDAS ---------------------------
+INSERT INTO DataMart.dim_medidas (CdMedida,NmMedida) 
+SELECT 
+        CdMedida,NmMedida
+FROM 
+        Intercordoba.p_medidas
+where 
+        CdMedida NOT IN (SELECT CdMedida
+                       FROM DataMart.dim_medidas);
+-- FAMILIAS ---------------------------
+INSERT INTO DataMart.dim_familias (CdFamilia,NmFamilia) 
+SELECT 
+        CdFamilia,NmFamilia
+FROM 
+        Intercordoba.familias
+where 
+        CdFamilia NOT IN (SELECT CdFamilia
+                       FROM DataMart.dim_familias);
+-- SUB FAMILIAS ---------------------------
+INSERT INTO DataMart.dim_subFamilias (CdSubFamilia,NmSubFamilia) 
+SELECT 
+        CdSubFamilia,NmSubFamilia
+FROM 
+        Intercordoba.subfamilias
+where 
+        CdSubFamilia NOT IN (SELECT CdSubFamilia
+                       FROM DataMart.dim_subFamilias);
+-- HECHOS VALE SALIDA-----------------------------
+-- el Interno 106 no existe mas en la base de datos pero si tiene novedades
+-- que hacemos con los distintos estados?
+-- 13 Anulados
+-- 1400 ingresados
+-- 0 pendientes
+-- 0 cerrados
+
+
+/*INSERT INTO dm_novedades.hechos_valesalida (esAnulado)
+SELECT Anulado
+FROM inter_db.p_valesalidacab
+WHERE Anulado = 1
+-- AND 
+AND Anulado NOT IN (SELECT Anulado FROM dm_novedades.dim_estado_valesalida);*/
+--
+
+
+-- con esto actualice a anulados el vale 354 del interno 23 que es el unico que tiene anulada
+/* UPDATE dm_novedades.hechos_valesalida
+SET esAnulado = 1
+WHERE NrVale IN (SELECT NrVale
+                                        FROM inter_db.p_valesalidacab
+                    WHERE Anulado = 1); */
+
+
+
+
+INSERT INTO DataMart.hechos_valeSalida
+SELECT
+    p_valesalidaitems.NrVale,
+    p_valesalidaitems.NrItem,
+    UNIX_TIMESTAMP(p_valesalidacab.Fecha),
+    p_valesalidaitems.CdArt,
+    CdDeposito,
+    CdRubro,
+    CdMedida,
+    CdFamilia,
+    CdSubFamilia,
+    Interno,
+    Anulado, -- !!!!!!!!!
+    1,
+    Cantidad,
+    Entrega,
+    Precio,
+    Precio * (Cantidad - Entrega)
+    
+
+
+FROM
+    Intercordoba.p_valesalidacab
+        JOIN
+    Intercordoba.p_valesalidaitems ON p_valesalidacab.NrVale = p_valesalidaitems.NrVale
+                JOIN
+    Intercordoba.articulos ON p_valesalidaitems.CdArt = articulos.CdArt
+where NOT Interno = 106 and
+         Intercordoba.p_valesalidacab.NrVale NOT IN (SELECT NrVale
+                       FROM DataMart.hechos_valeSalida);
